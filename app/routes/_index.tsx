@@ -29,9 +29,12 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const newValue = intent === "increment" ? currentValue + 1 : currentValue - 1;
 
-  return redirect("/", {
-    headers: { "Set-Cookie": await countCookie.serialize(newValue) },
-  });
+  return json(
+    { newValue },
+    {
+      headers: { "Set-Cookie": await countCookie.serialize(newValue) },
+    }
+  );
 }
 
 export default function Index() {
@@ -45,6 +48,8 @@ export default function Index() {
     const currentValue = parseInt(fetcher.formData.get("currentValue"));
     optimisticCount =
       intent === "increment" ? currentValue + 1 : currentValue - 1;
+  } else if (fetcher.data) {
+    optimisticCount = fetcher.data.newValue;
   }
 
   const finalCount = optimisticCount ?? loaderCount;
