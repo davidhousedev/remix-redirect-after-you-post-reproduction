@@ -1,4 +1,12 @@
-import type { MetaFunction } from "@remix-run/node";
+import {
+  ActionFunctionArgs,
+  LoaderFunctionArgs,
+  json,
+  redirect,
+  type MetaFunction,
+} from "@remix-run/node";
+import { useFetcher, useLoaderData } from "@remix-run/react";
+import countCookie from "../countCookie.server";
 
 export const meta: MetaFunction = () => {
   return [
@@ -7,35 +15,61 @@ export const meta: MetaFunction = () => {
   ];
 };
 
+export async function loader({ request }: LoaderFunctionArgs) {
+  const currentCount = await countCookie.parse(request.headers.get("Cookie"));
+
+  return json({ count: currentCount ?? 0 });
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  const formData = await request.formData();
+
+  const currentValue = parseInt(formData.get("currentValue"));
+  const intent = formData.get("intent");
+
+  const newValue = intent === "increment" ? currentValue + 1 : currentValue - 1;
+
+  return redirect("/", {
+    headers: { "Set-Cookie": await countCookie.serialize(newValue) },
+  });
+}
+
 export default function Index() {
+  const loaderData = useLoaderData<typeof loader>();
+  const fetcher = useFetcher<typeof action>();
+
+  const loaderCount = loaderData.count;
+  let optimisticCount = null;
+  if (fetcher.formData) {
+    const intent = fetcher.formData.get("intent");
+    const currentValue = parseInt(fetcher.formData.get("currentValue"));
+    optimisticCount =
+      intent === "increment" ? currentValue + 1 : currentValue - 1;
+  }
+
+  const finalCount = optimisticCount ?? loaderCount;
+
   return (
-    <div style={{ fontFamily: "system-ui, sans-serif", lineHeight: "1.8" }}>
-      <h1>Welcome to Remix</h1>
-      <ul>
-        <li>
-          <a
-            target="_blank"
-            href="https://remix.run/tutorials/blog"
-            rel="noreferrer"
-          >
-            15m Quickstart Blog Tutorial
-          </a>
-        </li>
-        <li>
-          <a
-            target="_blank"
-            href="https://remix.run/tutorials/jokes"
-            rel="noreferrer"
-          >
-            Deep Dive Jokes App Tutorial
-          </a>
-        </li>
-        <li>
-          <a target="_blank" href="https://remix.run/docs" rel="noreferrer">
-            Remix Docs
-          </a>
-        </li>
-      </ul>
+    <div
+      style={{
+        color: finalCount % 2 === 0 ? "blue" : "red",
+        fontSize: "2rem",
+      }}
+    >
+      <h1>Remix redirect-after-you-post</h1>
+      <p>
+        The text color of this page will change to blue if the count value is
+        even and red if it&apos;s odd. Count is {finalCount}
+      </p>
+      <fetcher.Form method="post">
+        <input type="hidden" name="currentValue" value={finalCount} />
+        <button name="intent" value="decrement" type="submit">
+          Decrement
+        </button>
+        <button name="intent" value="increment" type="submit">
+          Increment
+        </button>
+      </fetcher.Form>
     </div>
   );
 }
