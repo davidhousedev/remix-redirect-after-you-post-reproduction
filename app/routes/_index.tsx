@@ -32,7 +32,11 @@ export async function action({ request }: ActionFunctionArgs) {
   return json(
     { newValue },
     {
-      headers: { "Set-Cookie": await countCookie.serialize(newValue) },
+      headers: {
+        "Set-Cookie": await countCookie.serialize(newValue),
+        Location: "/",
+      },
+      status: 302,
     }
   );
 }
